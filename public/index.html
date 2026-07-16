@@ -2,120 +2,159 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1115" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <title>Flux Image Generator</title>
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
     background: #0f1115;
     color: #e6e6e6;
-    display: flex;
-    min-height: 100vh;
+    padding-top: env(safe-area-inset-top);
   }
-  /* ---------- Sidebar (sessions) ---------- */
-  #sidebar {
-    width: 240px;
-    min-width: 240px;
-    background: #14161c;
-    border-right: 1px solid #262a33;
-    padding: 16px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+
+  /* ---------- Top bar ---------- */
+  #topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: rgba(15,17,21,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #262a33;
   }
-  #sidebar h2 { font-size: 0.9rem; color: #999; margin: 0 4px 4px; font-weight: 600; }
+  #menuBtn {
+    background: #1a1d24; border: 1px solid #333; color: #e6e6e6;
+    border-radius: 10px; width: 42px; height: 42px; font-size: 1.2rem;
+    cursor: pointer; flex-shrink: 0;
+  }
+  #topbar h1 { font-size: 1.05rem; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #topbar .sub { font-size: 0.7rem; color: #888; }
+
+  /* ---------- Drawer (sessions) ---------- */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 40;
+  }
+  #overlay.open { opacity: 1; pointer-events: auto; }
+  #drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+    width: min(300px, 85vw);
+    background: #14161c; border-right: 1px solid #262a33;
+    padding: calc(16px + env(safe-area-inset-top)) 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer h2 { font-size: 0.9rem; color: #999; margin: 0 4px; font-weight: 600; }
   #newSessionBtn {
-    background: #4f8cff; color: #fff; border: none; border-radius: 8px;
-    padding: 10px; font-size: 0.9rem; cursor: pointer; width: 100%;
+    background: #4f8cff; color: #fff; border: none; border-radius: 10px;
+    padding: 13px; font-size: 0.95rem; cursor: pointer; width: 100%;
   }
-  #sessionList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  #sessionList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
   .session-item {
     display: flex; align-items: center; gap: 6px;
-    padding: 8px 10px; border-radius: 8px; cursor: pointer;
-    font-size: 0.85rem; color: #ccc; border: 1px solid transparent;
+    padding: 12px; border-radius: 10px; cursor: pointer;
+    font-size: 0.9rem; color: #ccc; border: 1px solid transparent;
   }
-  .session-item:hover { background: #1c2029; }
   .session-item.active { background: #1e2634; border-color: #35507e; color: #fff; }
   .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .session-item .del {
-    background: none; border: none; color: #666; cursor: pointer; font-size: 0.9rem; padding: 2px 4px;
+    background: none; border: none; color: #666; cursor: pointer;
+    font-size: 1rem; padding: 6px 8px;
   }
-  .session-item .del:hover { color: #f66; }
-  #storageInfo { font-size: 0.7rem; color: #666; margin: 8px 4px 0; }
+  #storageInfo { font-size: 0.72rem; color: #666; margin: 0 4px; }
 
   /* ---------- Main ---------- */
-  #main { flex: 1; padding: 28px 32px; max-width: 860px; margin: 0 auto; }
-  h1 { font-size: 1.3rem; margin: 0 0 2px; }
-  p.sub { color: #888; margin: 0 0 20px; font-size: 0.85rem; }
+  #main {
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom));
+    max-width: 760px; margin: 0 auto;
+  }
+  label { font-size: 0.8rem; color: #999; display: block; margin-bottom: 4px; }
   textarea, input, select {
-    width: 100%; padding: 10px; border-radius: 8px;
+    width: 100%; padding: 13px; border-radius: 10px;
     border: 1px solid #333; background: #1a1d24; color: #e6e6e6;
-    font-size: 0.95rem; margin-bottom: 12px;
+    font-size: 16px; /* 16px prevents iOS zoom-on-focus */
+    margin-bottom: 12px;
+    appearance: none;
   }
-  textarea { min-height: 80px; resize: vertical; }
-  button.primary {
+  textarea { min-height: 90px; resize: vertical; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  #generateBtn {
     background: #4f8cff; color: #fff; border: none;
-    padding: 12px 20px; border-radius: 8px; font-size: 1rem; cursor: pointer;
+    padding: 15px; border-radius: 12px; font-size: 1.05rem; font-weight: 600;
+    cursor: pointer; width: 100%;
   }
-  button.primary:disabled { background: #333; cursor: not-allowed; }
-  #status { margin-top: 10px; color: #aaa; font-size: 0.9rem; }
-  .row { display: flex; gap: 12px; }
-  .row > div { flex: 1; }
-  label { font-size: 0.8rem; color: #999; }
+  #generateBtn:disabled { background: #333; }
+  #status { margin-top: 10px; color: #aaa; font-size: 0.9rem; min-height: 1.2em; }
   pre {
-    background: #1a1d24; padding: 12px; border-radius: 8px;
-    overflow-x: auto; font-size: 0.8rem; color: #f66;
+    background: #1a1d24; padding: 12px; border-radius: 10px;
+    overflow-x: auto; font-size: 0.78rem; color: #f66;
     white-space: pre-wrap; word-break: break-all;
   }
 
   /* ---------- Gallery ---------- */
-  #gallery { margin-top: 28px; display: flex; flex-direction: column; gap: 20px; }
+  #gallery { margin-top: 22px; display: flex; flex-direction: column; gap: 18px; }
   .gen-card {
-    background: #14161c; border: 1px solid #262a33; border-radius: 12px;
-    padding: 14px; position: relative;
+    background: #14161c; border: 1px solid #262a33; border-radius: 14px;
+    padding: 12px;
   }
-  .gen-card img { max-width: 100%; border-radius: 8px; display: block; }
-  .gen-meta { font-size: 0.8rem; color: #999; margin: 8px 0 6px; word-break: break-word; }
+  .gen-card img { width: 100%; border-radius: 10px; display: block; }
+  .gen-meta { font-size: 0.8rem; color: #999; margin: 10px 2px 8px; word-break: break-word; line-height: 1.4; }
   .gen-meta .seed { color: #6c6; }
-  .gen-actions { display: flex; gap: 8px; }
+  .gen-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .gen-actions button {
     background: #1e2634; color: #ccc; border: 1px solid #35507e;
-    border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+    border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; cursor: pointer;
+    flex: 1; min-width: 90px;
   }
   .gen-actions button.danger { border-color: #7e3535; }
-  .gen-actions button.danger:hover { background: #3a1e1e; color: #f88; }
-  .gen-actions button:hover { background: #26314a; }
-  #emptyMsg { color: #666; font-size: 0.9rem; margin-top: 24px; }
+  #emptyMsg { color: #666; font-size: 0.9rem; margin-top: 24px; text-align: center; }
 
-  @media (max-width: 700px) {
-    body { flex-direction: column; }
-    #sidebar { width: 100%; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
-    #sidebar h2 { width: 100%; }
-    #newSessionBtn { width: auto; }
-    #sessionList { flex-direction: row; overflow-x: auto; margin-top: 0; }
-    #main { padding: 20px 16px; }
+  /* ---------- Desktop: persistent sidebar ---------- */
+  @media (min-width: 900px) {
+    #menuBtn { display: none; }
+    #overlay { display: none; }
+    #drawer {
+      transform: none; transition: none;
+      width: 260px;
+    }
+    #topbar { margin-left: 260px; }
+    #main { margin-left: calc(260px + (100vw - 260px - 760px) / 2); }
+    .controls { grid-template-columns: repeat(4, 1fr); }
   }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
+<div id="overlay"></div>
+
+<div id="drawer">
   <h2>Sessions</h2>
   <button id="newSessionBtn">+ New Session</button>
   <div id="sessionList"></div>
   <div id="storageInfo"></div>
 </div>
 
-<div id="main">
-  <h1>Flux Image Generator</h1>
-  <p class="sub">FLUX.1-dev &middot; NVIDIA API</p>
+<div id="topbar">
+  <button id="menuBtn" aria-label="Sessions">☰</button>
+  <div>
+    <h1 id="sessionTitle">Flux Image Generator</h1>
+    <div class="sub">FLUX.1-dev · NVIDIA API</div>
+  </div>
+</div>
 
+<div id="main">
   <label for="prompt">Prompt</label>
   <textarea id="prompt" placeholder="Describe the image you want..."></textarea>
 
-  <div class="row">
+  <div class="controls">
     <div>
       <label for="aspect">Aspect ratio</label>
       <select id="aspect">
@@ -140,7 +179,7 @@
     </div>
   </div>
 
-  <button id="generateBtn" class="primary">Generate Image</button>
+  <button id="generateBtn">Generate Image</button>
   <div id="status"></div>
   <div id="errorBox"></div>
 
@@ -150,9 +189,27 @@
 
 <script>
 /* ============================================================
+   PWA: register service worker
+   ============================================================ */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+/* ============================================================
+   Drawer open/close (mobile)
+   ============================================================ */
+const drawer = document.getElementById("drawer");
+const overlay = document.getElementById("overlay");
+const menuBtn = document.getElementById("menuBtn");
+const openDrawer = () => { drawer.classList.add("open"); overlay.classList.add("open"); };
+const closeDrawer = () => { drawer.classList.remove("open"); overlay.classList.remove("open"); };
+menuBtn.onclick = openDrawer;
+overlay.onclick = closeDrawer;
+
+/* ============================================================
    IndexedDB storage: sessions + generations survive reloads.
-   (IndexedDB holds far more than localStorage — needed since
-   base64 images are ~1-2 MB each.)
    ============================================================ */
 const DB_NAME = "flux-app";
 const DB_VERSION = 1;
@@ -176,36 +233,11 @@ function openDB() {
   });
 }
 
-const tx = (store, mode = "readonly") =>
-  db.transaction(store, mode).objectStore(store);
-
-const dbAdd = (store, val) =>
-  new Promise((res, rej) => {
-    const r = tx(store, "readwrite").put(val);
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-
-const dbDelete = (store, key) =>
-  new Promise((res, rej) => {
-    const r = tx(store, "readwrite").delete(key);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
-  });
-
-const dbGetAll = (store) =>
-  new Promise((res, rej) => {
-    const r = tx(store).getAll();
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-
-const dbGetBySession = (sessionId) =>
-  new Promise((res, rej) => {
-    const r = tx("generations").index("bySession").getAll(sessionId);
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
+const tx = (store, mode = "readonly") => db.transaction(store, mode).objectStore(store);
+const dbAdd = (store, val) => new Promise((res, rej) => { const r = tx(store, "readwrite").put(val); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const dbDelete = (store, key) => new Promise((res, rej) => { const r = tx(store, "readwrite").delete(key); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+const dbGetAll = (store) => new Promise((res, rej) => { const r = tx(store).getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const dbGetBySession = (sessionId) => new Promise((res, rej) => { const r = tx("generations").index("bySession").getAll(sessionId); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
 async function deleteSessionAndImages(sessionId) {
   const gens = await dbGetBySession(sessionId);
@@ -229,7 +261,13 @@ const els = {
   btn: document.getElementById("generateBtn"),
   prompt: document.getElementById("prompt"),
   storageInfo: document.getElementById("storageInfo"),
+  sessionTitle: document.getElementById("sessionTitle"),
 };
+
+async function currentSession() {
+  const sessions = await dbGetAll("sessions");
+  return sessions.find((s) => s.id === currentSessionId);
+}
 
 async function createSession(name) {
   const session = { id: uid(), name: name || "New session", createdAt: Date.now() };
@@ -239,6 +277,7 @@ async function createSession(name) {
   await renderSessions();
   await renderGallery();
   els.prompt.value = "";
+  closeDrawer();
   return session;
 }
 
@@ -247,6 +286,7 @@ async function switchSession(id) {
   localStorage.setItem("flux-current-session", id);
   await renderSessions();
   await renderGallery();
+  closeDrawer();
 }
 
 async function renderSessions() {
@@ -276,6 +316,8 @@ async function renderSessions() {
     };
     els.sessionList.appendChild(item);
   }
+  const cur = sessions.find((s) => s.id === currentSessionId);
+  els.sessionTitle.textContent = cur ? cur.name : "Flux Image Generator";
   updateStorageInfo();
 }
 
@@ -290,11 +332,12 @@ async function renderGallery() {
 
     const img = document.createElement("img");
     img.src = g.image;
+    img.loading = "lazy";
     card.appendChild(img);
 
     const meta = document.createElement("div");
     meta.className = "gen-meta";
-    meta.innerHTML = `<span class="prompt-text"></span><br/>Seed: <span class="seed">${g.seed}</span> &middot; ${g.aspect} &middot; ${new Date(g.createdAt).toLocaleString()}`;
+    meta.innerHTML = `<span class="prompt-text"></span><br/>Seed: <span class="seed">${g.seed}</span> · ${g.aspect} · ${new Date(g.createdAt).toLocaleString()}`;
     meta.querySelector(".prompt-text").textContent = g.prompt;
     card.appendChild(meta);
 
@@ -302,7 +345,7 @@ async function renderGallery() {
     actions.className = "gen-actions";
 
     const reuseBtn = document.createElement("button");
-    reuseBtn.textContent = "Reuse prompt + seed";
+    reuseBtn.textContent = "Reuse";
     reuseBtn.onclick = () => {
       document.getElementById("prompt").value = g.prompt;
       document.getElementById("seed").value = g.seed;
@@ -317,7 +360,9 @@ async function renderGallery() {
       const a = document.createElement("a");
       a.href = g.image;
       a.download = `flux-${g.seed}.png`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
     };
     actions.appendChild(dlBtn);
 
@@ -341,9 +386,9 @@ async function updateStorageInfo() {
     const { usage, quota } = await navigator.storage.estimate();
     const mb = (n) => (n / 1024 / 1024).toFixed(1);
     const pct = quota ? Math.round((usage / quota) * 100) : 0;
-    els.storageInfo.textContent = `Storage: ${mb(usage)} MB used (${pct}% of quota)`;
+    els.storageInfo.textContent = `Storage: ${mb(usage)} MB used (${pct}%)`;
     if (pct > 85) {
-      els.storageInfo.textContent += " — nearly full, delete old images/sessions";
+      els.storageInfo.textContent += " — nearly full, delete old images";
       els.storageInfo.style.color = "#f90";
     } else {
       els.storageInfo.style.color = "#666";
@@ -400,9 +445,8 @@ els.btn.addEventListener("click", async () => {
     const src = b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`;
 
     // Name the session after the first prompt (like chat titles)
-    const sessions = await dbGetAll("sessions");
-    const cur = sessions.find((s) => s.id === currentSessionId);
-    if (cur && cur.name.startsWith("Session") || cur && cur.name === "New session") {
+    const cur = await currentSession();
+    if (cur && (cur.name.startsWith("Session") || cur.name === "New session")) {
       const gens = await dbGetBySession(currentSessionId);
       if (gens.length === 0) {
         cur.name = prompt.slice(0, 40) + (prompt.length > 40 ? "…" : "");
@@ -422,8 +466,7 @@ els.btn.addEventListener("click", async () => {
       });
       els.status.textContent = "Done.";
     } catch (storageErr) {
-      els.status.textContent =
-        "Image generated, but couldn't be saved — storage is full. Delete old images or sessions to free space.";
+      els.status.textContent = "Image generated, but couldn't be saved — storage is full. Delete old images to free space.";
     }
 
     await renderSessions();
