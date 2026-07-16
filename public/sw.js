@@ -1,4 +1,4 @@
-const CACHE_NAME = "flux-app-v1";
+const CACHE_NAME = "flux-app-v2";
 const SHELL = [
   "/",
   "/index.html",

@@ -138,6 +138,10 @@
 <div id="drawer">
   <h2>Sessions</h2>
   <button id="newSessionBtn">+ New Session</button>
+  <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#999;margin:2px 4px 0;cursor:pointer;">
+    <input type="checkbox" id="autoNewSession" style="width:auto;margin:0;" />
+    New session per image
+  </label>
   <div id="sessionList"></div>
   <div id="storageInfo"></div>
 </div>
@@ -239,10 +243,26 @@ const dbDelete = (store, key) => new Promise((res, rej) => { const r = tx(store,
 const dbGetAll = (store) => new Promise((res, rej) => { const r = tx(store).getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 const dbGetBySession = (sessionId) => new Promise((res, rej) => { const r = tx("generations").index("bySession").getAll(sessionId); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
-async function deleteSessionAndImages(sessionId) {
-  const gens = await dbGetBySession(sessionId);
-  for (const g of gens) await dbDelete("generations", g.id);
-  await dbDelete("sessions", sessionId);
+function deleteSessionAndImages(sessionId) {
+  // Single transaction across both stores: either everything is
+  // deleted or nothing is — no half-deleted "ghost" sessions.
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(["sessions", "generations"], "readwrite");
+    const genStore = t.objectStore("generations");
+    const idx = genStore.index("bySession");
+    const req = idx.openCursor(IDBKeyRange.only(sessionId));
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+    t.objectStore("sessions").delete(sessionId);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  });
 }
 
 /* ============================================================
@@ -282,8 +302,21 @@ async function createSession(name) {
 }
 
 async function switchSession(id) {
-  currentSessionId = id;
-  localStorage.setItem("flux-current-session", id);
+  // Guard: the session may have been deleted (stale UI / another tab).
+  const sessions = await dbGetAll("sessions");
+  const exists = sessions.find((s) => s.id === id);
+  if (!exists) {
+    // Fall back to the most recent real session, or create one.
+    if (sessions.length > 0) {
+      currentSessionId = sessions.sort((a, b) => b.createdAt - a.createdAt)[0].id;
+    } else {
+      await createSession("Session 1");
+      return;
+    }
+  } else {
+    currentSessionId = id;
+  }
+  localStorage.setItem("flux-current-session", currentSessionId);
   await renderSessions();
   await renderGallery();
   closeDrawer();
@@ -301,11 +334,16 @@ async function renderSessions() {
     item.querySelector(".del").onclick = async (e) => {
       e.stopPropagation();
       if (!confirm(`Delete session "${s.name}" and all its images?`)) return;
-      await deleteSessionAndImages(s.id);
+      try {
+        await deleteSessionAndImages(s.id);
+      } catch (err) {
+        alert("Couldn't delete session: " + (err?.message || err));
+      }
       if (currentSessionId === s.id) {
         const remaining = await dbGetAll("sessions");
         if (remaining.length > 0) {
           currentSessionId = remaining.sort((a, b) => b.createdAt - a.createdAt)[0].id;
+          localStorage.setItem("flux-current-session", currentSessionId);
         } else {
           await createSession("Session 1");
           return;
@@ -417,6 +455,21 @@ els.btn.addEventListener("click", async () => {
   els.status.textContent = "Generating... this can take 10-60 seconds.";
   els.errorBox.innerHTML = "";
 
+  // "New session per image": start a fresh session for this generation
+  // (only if the current one already has images — otherwise use it).
+  const autoNew = document.getElementById("autoNewSession").checked;
+  const existingSession = await currentSession();
+  if (!existingSession) {
+    // Current session was deleted — never save into a ghost session.
+    await createSession("New session");
+  } else if (autoNew) {
+    const gensInCurrent = await dbGetBySession(currentSessionId);
+    if (gensInCurrent.length > 0) {
+      await createSession("New session");
+    }
+  }
+  els.prompt.value = prompt; // createSession clears the box; keep the text visible
+
   try {
     const res = await fetch("/api/generate", {
       method: "POST",
@@ -481,6 +534,13 @@ els.btn.addEventListener("click", async () => {
 });
 
 els.newSessionBtn.addEventListener("click", () => createSession("New session"));
+
+// Persist the "new session per image" preference
+const autoNewCheckbox = document.getElementById("autoNewSession");
+autoNewCheckbox.checked = localStorage.getItem("flux-auto-new-session") === "1";
+autoNewCheckbox.addEventListener("change", () => {
+  localStorage.setItem("flux-auto-new-session", autoNewCheckbox.checked ? "1" : "0");
+});
 
 /* ============================================================
    Init
