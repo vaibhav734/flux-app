@@ -15,7 +15,7 @@
   }
   h1 { font-size: 1.4rem; margin-bottom: 4px; }
   p.sub { color: #999; margin-top: 0; margin-bottom: 24px; }
-  textarea, input {
+  textarea, input, select {
     width: 100%;
     box-sizing: border-box;
     padding: 10px;
@@ -47,63 +47,86 @@
     overflow-x: auto;
     font-size: 0.8rem;
     color: #f66;
+    white-space: pre-wrap;
+    word-break: break-all;
   }
   .row { display: flex; gap: 12px; }
   .row > div { flex: 1; }
   label { font-size: 0.85rem; color: #999; }
+  #seedUsed { color: #6c6; font-size: 0.85rem; margin-top: 8px; }
 </style>
 </head>
 <body>
-  <h1>Flux.1 Kontext Image Generator</h1>
-  <p class="sub">Powered by NVIDIA API &middot; deployed on Render</p>
+  <h1>Flux Image Generator</h1>
+  <p class="sub">FLUX.1-dev &middot; NVIDIA API &middot; Render</p>
 
   <label for="prompt">Prompt</label>
-  <textarea id="prompt" placeholder="Describe the image you want...">Ultra-realistic portrait, cinematic lighting, 85mm lens, 8K, photorealistic</textarea>
+  <textarea id="prompt" placeholder="Describe the image you want...">A cozy mountain cabin at sunset, warm lights in the windows, cinematic, photorealistic</textarea>
 
   <div class="row">
     <div>
+      <label for="aspect">Aspect ratio</label>
+      <select id="aspect">
+        <option value="1:1" selected>1:1 (square)</option>
+        <option value="16:9">16:9 (landscape)</option>
+        <option value="9:16">9:16 (portrait)</option>
+        <option value="4:3">4:3</option>
+        <option value="3:4">3:4</option>
+      </select>
+    </div>
+    <div>
       <label for="steps">Steps</label>
-      <input id="steps" type="number" value="30" />
+      <input id="steps" type="number" value="50" />
     </div>
     <div>
       <label for="cfg">CFG Scale</label>
       <input id="cfg" type="number" value="3.5" step="0.1" />
     </div>
     <div>
-      <label for="seed">Seed</label>
-      <input id="seed" type="number" value="0" />
+      <label for="seed">Seed (blank = random)</label>
+      <input id="seed" type="number" placeholder="random" />
     </div>
   </div>
 
   <button id="generateBtn">Generate Image</button>
   <div id="status"></div>
+  <div id="seedUsed"></div>
   <div id="result"></div>
 
   <script>
     const btn = document.getElementById("generateBtn");
     const status = document.getElementById("status");
     const result = document.getElementById("result");
+    const seedUsed = document.getElementById("seedUsed");
 
     btn.addEventListener("click", async () => {
       const prompt = document.getElementById("prompt").value.trim();
-      const steps = parseInt(document.getElementById("steps").value, 10);
-      const cfg_scale = parseFloat(document.getElementById("cfg").value);
-      const seed = parseInt(document.getElementById("seed").value, 10);
+      const aspect_ratio = document.getElementById("aspect").value;
+      const stepsVal = document.getElementById("steps").value.trim();
+      const cfgVal = document.getElementById("cfg").value.trim();
+      const seedVal = document.getElementById("seed").value.trim();
 
       if (!prompt) {
         status.textContent = "Please enter a prompt.";
         return;
       }
 
+      const body = { prompt, aspect_ratio };
+      if (stepsVal !== "") body.steps = parseInt(stepsVal, 10);
+      if (cfgVal !== "") body.cfg_scale = parseFloat(cfgVal);
+      if (seedVal !== "") body.seed = parseInt(seedVal, 10);
+      // Blank seed => server randomizes per request => different image each time.
+
       btn.disabled = true;
-      status.textContent = "Generating... this can take 10-30 seconds.";
+      status.textContent = "Generating... this can take 10-60 seconds.";
+      seedUsed.textContent = "";
       result.innerHTML = "";
 
       try {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, steps, cfg_scale, seed }),
+          body: JSON.stringify(body),
         });
 
         const data = await res.json();
@@ -115,15 +138,28 @@
         }
 
         status.textContent = "Done.";
+        if (data.seed_used !== undefined) {
+          seedUsed.textContent =
+            `Seed used: ${data.seed_used} (enter this in the Seed field to reproduce this image)`;
+        }
 
-        // NVIDIA response typically includes base64 image data.
-        // Adjust this depending on the actual response shape returned by the API.
-        if (data.image) {
-          result.innerHTML = `<img src="data:image/png;base64,${data.image}" />`;
-        } else if (data.artifacts && data.artifacts.length > 0) {
-          result.innerHTML = `<img src="data:image/png;base64,${data.artifacts[0].base64}" />`;
+        // Handle common response shapes from NVIDIA genai endpoints.
+        let b64 = null;
+        if (typeof data.image === "string") {
+          b64 = data.image;
+        } else if (data.artifacts && data.artifacts.length > 0 && data.artifacts[0].base64) {
+          b64 = data.artifacts[0].base64;
+        } else if (data.data && data.data.length > 0 && data.data[0].b64_json) {
+          b64 = data.data[0].b64_json;
+        }
+
+        if (b64) {
+          const src = b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`;
+          result.innerHTML = `<img src="${src}" />`;
         } else {
-          result.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+          result.innerHTML =
+            `<p style="color:#f90">Couldn't find image data in the response — raw response below:</p>` +
+            `<pre>${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>`;
         }
       } catch (err) {
         status.textContent = "Request failed.";

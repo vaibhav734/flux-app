@@ -1,7 +1,7 @@
 {
   "name": "flux-image-app",
-  "version": "1.0.0",
-  "description": "Simple web app to generate images via NVIDIA's Flux.1 Kontext API, deployable on Render",
+  "version": "1.1.0",
+  "description": "Web app to generate images via NVIDIA's Flux APIs, deployable on Render",
   "type": "module",
   "main": "server.js",
   "scripts": {

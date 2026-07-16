@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "15mb" })); // generous limit in case base64 images are sent
+app.use(express.json({ limit: "15mb" }));
 
 const PORT = process.env.PORT || 3000;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
@@ -16,28 +16,40 @@ if (!NVIDIA_API_KEY) {
   console.warn("WARNING: NVIDIA_API_KEY environment variable is not set.");
 }
 
+// flux.1-dev — pure text-to-image model
 const INVOKE_URL =
-  "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-kontext-dev";
+  "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev";
+
+const randomSeed = () => Math.floor(Math.random() * 4294967295);
 
 app.post("/api/generate", async (req, res) => {
   try {
     if (!NVIDIA_API_KEY) {
-      return res.status(500).json({ error: "Server misconfigured: NVIDIA_API_KEY not set" });
+      return res
+        .status(500)
+        .json({ error: "Server misconfigured: NVIDIA_API_KEY not set" });
     }
 
-    const { prompt, image, aspect_ratio, steps, cfg_scale, seed } = req.body;
+    const { prompt, aspect_ratio, steps, cfg_scale, seed } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    // Use caller's seed if provided; otherwise randomize per request
+    // so every generation produces a different image.
+    const finalSeed =
+      seed !== undefined && seed !== null && seed !== ""
+        ? Number(seed)
+        : randomSeed();
+
     const payload = {
       prompt,
-      image: image || "data:image/png;example_id,0",
-      aspect_ratio: aspect_ratio || "match_input_image",
-      steps: steps ?? 30,
+      mode: "base",
+      aspect_ratio: aspect_ratio || "1:1",
+      steps: steps ?? 50,
       cfg_scale: cfg_scale ?? 3.5,
-      seed: seed ?? 0,
+      seed: finalSeed,
     };
 
     const response = await fetch(INVOKE_URL, {
@@ -58,10 +70,13 @@ app.post("/api/generate", async (req, res) => {
     }
 
     const data = await response.json();
-    res.json(data);
+    // Return the seed used so the client can display/reuse it.
+    res.json({ seed_used: finalSeed, ...data });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal server error", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: err.message });
   }
 });
 
