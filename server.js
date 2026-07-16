@@ -43,10 +43,21 @@ app.post("/api/generate", async (req, res) => {
         ? Number(seed)
         : randomSeed();
 
+    // Map aspect ratio to width/height (flux.1-dev wants explicit dimensions)
+    const SIZES = {
+      "1:1":  { width: 1024, height: 1024 },
+      "16:9": { width: 1344, height: 768 },
+      "9:16": { width: 768,  height: 1344 },
+      "4:3":  { width: 1152, height: 896 },
+      "3:4":  { width: 896,  height: 1152 },
+    };
+    const size = SIZES[aspect_ratio] || SIZES["1:1"];
+
     const payload = {
       prompt,
       mode: "base",
-      aspect_ratio: aspect_ratio || "1:1",
+      width: size.width,
+      height: size.height,
       steps: steps ?? 50,
       cfg_scale: cfg_scale ?? 3.5,
       seed: finalSeed,
