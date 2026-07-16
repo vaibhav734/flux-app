@@ -5,71 +5,123 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Flux Image Generator</title>
 <style>
+  * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    max-width: 720px;
-    margin: 40px auto;
-    padding: 0 20px;
+    margin: 0;
     background: #0f1115;
     color: #e6e6e6;
+    display: flex;
+    min-height: 100vh;
   }
-  h1 { font-size: 1.4rem; margin-bottom: 4px; }
-  p.sub { color: #999; margin-top: 0; margin-bottom: 24px; }
+  /* ---------- Sidebar (sessions) ---------- */
+  #sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: #14161c;
+    border-right: 1px solid #262a33;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #sidebar h2 { font-size: 0.9rem; color: #999; margin: 0 4px 4px; font-weight: 600; }
+  #newSessionBtn {
+    background: #4f8cff; color: #fff; border: none; border-radius: 8px;
+    padding: 10px; font-size: 0.9rem; cursor: pointer; width: 100%;
+  }
+  #sessionList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .session-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 0.85rem; color: #ccc; border: 1px solid transparent;
+  }
+  .session-item:hover { background: #1c2029; }
+  .session-item.active { background: #1e2634; border-color: #35507e; color: #fff; }
+  .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-item .del {
+    background: none; border: none; color: #666; cursor: pointer; font-size: 0.9rem; padding: 2px 4px;
+  }
+  .session-item .del:hover { color: #f66; }
+  #storageInfo { font-size: 0.7rem; color: #666; margin: 8px 4px 0; }
+
+  /* ---------- Main ---------- */
+  #main { flex: 1; padding: 28px 32px; max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin: 0 0 2px; }
+  p.sub { color: #888; margin: 0 0 20px; font-size: 0.85rem; }
   textarea, input, select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    background: #1a1d24;
-    color: #e6e6e6;
-    font-size: 0.95rem;
-    margin-bottom: 12px;
+    width: 100%; padding: 10px; border-radius: 8px;
+    border: 1px solid #333; background: #1a1d24; color: #e6e6e6;
+    font-size: 0.95rem; margin-bottom: 12px;
   }
-  textarea { min-height: 90px; resize: vertical; }
-  button {
-    background: #4f8cff;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 1rem;
-    cursor: pointer;
+  textarea { min-height: 80px; resize: vertical; }
+  button.primary {
+    background: #4f8cff; color: #fff; border: none;
+    padding: 12px 20px; border-radius: 8px; font-size: 1rem; cursor: pointer;
   }
-  button:disabled { background: #333; cursor: not-allowed; }
-  #status { margin-top: 12px; color: #aaa; font-size: 0.9rem; }
-  #result { margin-top: 20px; }
-  #result img { max-width: 100%; border-radius: 8px; }
-  pre {
-    background: #1a1d24;
-    padding: 12px;
-    border-radius: 8px;
-    overflow-x: auto;
-    font-size: 0.8rem;
-    color: #f66;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
+  button.primary:disabled { background: #333; cursor: not-allowed; }
+  #status { margin-top: 10px; color: #aaa; font-size: 0.9rem; }
   .row { display: flex; gap: 12px; }
   .row > div { flex: 1; }
-  label { font-size: 0.85rem; color: #999; }
-  #seedUsed { color: #6c6; font-size: 0.85rem; margin-top: 8px; }
+  label { font-size: 0.8rem; color: #999; }
+  pre {
+    background: #1a1d24; padding: 12px; border-radius: 8px;
+    overflow-x: auto; font-size: 0.8rem; color: #f66;
+    white-space: pre-wrap; word-break: break-all;
+  }
+
+  /* ---------- Gallery ---------- */
+  #gallery { margin-top: 28px; display: flex; flex-direction: column; gap: 20px; }
+  .gen-card {
+    background: #14161c; border: 1px solid #262a33; border-radius: 12px;
+    padding: 14px; position: relative;
+  }
+  .gen-card img { max-width: 100%; border-radius: 8px; display: block; }
+  .gen-meta { font-size: 0.8rem; color: #999; margin: 8px 0 6px; word-break: break-word; }
+  .gen-meta .seed { color: #6c6; }
+  .gen-actions { display: flex; gap: 8px; }
+  .gen-actions button {
+    background: #1e2634; color: #ccc; border: 1px solid #35507e;
+    border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+  }
+  .gen-actions button.danger { border-color: #7e3535; }
+  .gen-actions button.danger:hover { background: #3a1e1e; color: #f88; }
+  .gen-actions button:hover { background: #26314a; }
+  #emptyMsg { color: #666; font-size: 0.9rem; margin-top: 24px; }
+
+  @media (max-width: 700px) {
+    body { flex-direction: column; }
+    #sidebar { width: 100%; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    #sidebar h2 { width: 100%; }
+    #newSessionBtn { width: auto; }
+    #sessionList { flex-direction: row; overflow-x: auto; margin-top: 0; }
+    #main { padding: 20px 16px; }
+  }
 </style>
 </head>
 <body>
+
+<div id="sidebar">
+  <h2>Sessions</h2>
+  <button id="newSessionBtn">+ New Session</button>
+  <div id="sessionList"></div>
+  <div id="storageInfo"></div>
+</div>
+
+<div id="main">
   <h1>Flux Image Generator</h1>
-  <p class="sub">FLUX.1-dev &middot; NVIDIA API &middot; Render</p>
+  <p class="sub">FLUX.1-dev &middot; NVIDIA API</p>
 
   <label for="prompt">Prompt</label>
-  <textarea id="prompt" placeholder="Describe the image you want...">A cozy mountain cabin at sunset, warm lights in the windows, cinematic, photorealistic</textarea>
+  <textarea id="prompt" placeholder="Describe the image you want..."></textarea>
 
   <div class="row">
     <div>
       <label for="aspect">Aspect ratio</label>
       <select id="aspect">
-        <option value="1:1" selected>1:1 (square)</option>
-        <option value="16:9">16:9 (landscape)</option>
-        <option value="9:16">9:16 (portrait)</option>
+        <option value="1:1" selected>1:1</option>
+        <option value="16:9">16:9</option>
+        <option value="9:16">9:16</option>
         <option value="4:3">4:3</option>
         <option value="3:4">3:4</option>
       </select>
@@ -88,86 +140,322 @@
     </div>
   </div>
 
-  <button id="generateBtn">Generate Image</button>
+  <button id="generateBtn" class="primary">Generate Image</button>
   <div id="status"></div>
-  <div id="seedUsed"></div>
-  <div id="result"></div>
+  <div id="errorBox"></div>
 
-  <script>
-    const btn = document.getElementById("generateBtn");
-    const status = document.getElementById("status");
-    const result = document.getElementById("result");
-    const seedUsed = document.getElementById("seedUsed");
+  <div id="gallery"></div>
+  <div id="emptyMsg" style="display:none">No images in this session yet — generate one above.</div>
+</div>
 
-    btn.addEventListener("click", async () => {
-      const prompt = document.getElementById("prompt").value.trim();
-      const aspect_ratio = document.getElementById("aspect").value;
-      const stepsVal = document.getElementById("steps").value.trim();
-      const cfgVal = document.getElementById("cfg").value.trim();
-      const seedVal = document.getElementById("seed").value.trim();
+<script>
+/* ============================================================
+   IndexedDB storage: sessions + generations survive reloads.
+   (IndexedDB holds far more than localStorage — needed since
+   base64 images are ~1-2 MB each.)
+   ============================================================ */
+const DB_NAME = "flux-app";
+const DB_VERSION = 1;
+let db;
 
-      if (!prompt) {
-        status.textContent = "Please enter a prompt.";
-        return;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains("sessions")) {
+        d.createObjectStore("sessions", { keyPath: "id" });
       }
+      if (!d.objectStoreNames.contains("generations")) {
+        const store = d.createObjectStore("generations", { keyPath: "id" });
+        store.createIndex("bySession", "sessionId", { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
-      const body = { prompt, aspect_ratio };
-      if (stepsVal !== "") body.steps = parseInt(stepsVal, 10);
-      if (cfgVal !== "") body.cfg_scale = parseFloat(cfgVal);
-      if (seedVal !== "") body.seed = parseInt(seedVal, 10);
-      // Blank seed => server randomizes per request => different image each time.
+const tx = (store, mode = "readonly") =>
+  db.transaction(store, mode).objectStore(store);
 
-      btn.disabled = true;
-      status.textContent = "Generating... this can take 10-60 seconds.";
-      seedUsed.textContent = "";
-      result.innerHTML = "";
+const dbAdd = (store, val) =>
+  new Promise((res, rej) => {
+    const r = tx(store, "readwrite").put(val);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
 
-      try {
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+const dbDelete = (store, key) =>
+  new Promise((res, rej) => {
+    const r = tx(store, "readwrite").delete(key);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
 
-        const data = await res.json();
+const dbGetAll = (store) =>
+  new Promise((res, rej) => {
+    const r = tx(store).getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
 
-        if (!res.ok) {
-          status.textContent = "Error generating image.";
-          result.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+const dbGetBySession = (sessionId) =>
+  new Promise((res, rej) => {
+    const r = tx("generations").index("bySession").getAll(sessionId);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+
+async function deleteSessionAndImages(sessionId) {
+  const gens = await dbGetBySession(sessionId);
+  for (const g of gens) await dbDelete("generations", g.id);
+  await dbDelete("sessions", sessionId);
+}
+
+/* ============================================================
+   App state
+   ============================================================ */
+let currentSessionId = null;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+const els = {
+  sessionList: document.getElementById("sessionList"),
+  newSessionBtn: document.getElementById("newSessionBtn"),
+  gallery: document.getElementById("gallery"),
+  emptyMsg: document.getElementById("emptyMsg"),
+  status: document.getElementById("status"),
+  errorBox: document.getElementById("errorBox"),
+  btn: document.getElementById("generateBtn"),
+  prompt: document.getElementById("prompt"),
+  storageInfo: document.getElementById("storageInfo"),
+};
+
+async function createSession(name) {
+  const session = { id: uid(), name: name || "New session", createdAt: Date.now() };
+  await dbAdd("sessions", session);
+  currentSessionId = session.id;
+  localStorage.setItem("flux-current-session", currentSessionId);
+  await renderSessions();
+  await renderGallery();
+  els.prompt.value = "";
+  return session;
+}
+
+async function switchSession(id) {
+  currentSessionId = id;
+  localStorage.setItem("flux-current-session", id);
+  await renderSessions();
+  await renderGallery();
+}
+
+async function renderSessions() {
+  const sessions = (await dbGetAll("sessions")).sort((a, b) => b.createdAt - a.createdAt);
+  els.sessionList.innerHTML = "";
+  for (const s of sessions) {
+    const item = document.createElement("div");
+    item.className = "session-item" + (s.id === currentSessionId ? " active" : "");
+    item.innerHTML = `<span class="name"></span><button class="del" title="Delete session">✕</button>`;
+    item.querySelector(".name").textContent = s.name;
+    item.querySelector(".name").onclick = () => switchSession(s.id);
+    item.querySelector(".del").onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Delete session "${s.name}" and all its images?`)) return;
+      await deleteSessionAndImages(s.id);
+      if (currentSessionId === s.id) {
+        const remaining = await dbGetAll("sessions");
+        if (remaining.length > 0) {
+          currentSessionId = remaining.sort((a, b) => b.createdAt - a.createdAt)[0].id;
+        } else {
+          await createSession("Session 1");
           return;
         }
-
-        status.textContent = "Done.";
-        if (data.seed_used !== undefined) {
-          seedUsed.textContent =
-            `Seed used: ${data.seed_used} (enter this in the Seed field to reproduce this image)`;
-        }
-
-        // Handle common response shapes from NVIDIA genai endpoints.
-        let b64 = null;
-        if (typeof data.image === "string") {
-          b64 = data.image;
-        } else if (data.artifacts && data.artifacts.length > 0 && data.artifacts[0].base64) {
-          b64 = data.artifacts[0].base64;
-        } else if (data.data && data.data.length > 0 && data.data[0].b64_json) {
-          b64 = data.data[0].b64_json;
-        }
-
-        if (b64) {
-          const src = b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`;
-          result.innerHTML = `<img src="${src}" />`;
-        } else {
-          result.innerHTML =
-            `<p style="color:#f90">Couldn't find image data in the response — raw response below:</p>` +
-            `<pre>${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>`;
-        }
-      } catch (err) {
-        status.textContent = "Request failed.";
-        result.innerHTML = `<pre>${err.message}</pre>`;
-      } finally {
-        btn.disabled = false;
       }
+      await renderSessions();
+      await renderGallery();
+    };
+    els.sessionList.appendChild(item);
+  }
+  updateStorageInfo();
+}
+
+async function renderGallery() {
+  const gens = (await dbGetBySession(currentSessionId)).sort((a, b) => b.createdAt - a.createdAt);
+  els.gallery.innerHTML = "";
+  els.emptyMsg.style.display = gens.length === 0 ? "block" : "none";
+
+  for (const g of gens) {
+    const card = document.createElement("div");
+    card.className = "gen-card";
+
+    const img = document.createElement("img");
+    img.src = g.image;
+    card.appendChild(img);
+
+    const meta = document.createElement("div");
+    meta.className = "gen-meta";
+    meta.innerHTML = `<span class="prompt-text"></span><br/>Seed: <span class="seed">${g.seed}</span> &middot; ${g.aspect} &middot; ${new Date(g.createdAt).toLocaleString()}`;
+    meta.querySelector(".prompt-text").textContent = g.prompt;
+    card.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "gen-actions";
+
+    const reuseBtn = document.createElement("button");
+    reuseBtn.textContent = "Reuse prompt + seed";
+    reuseBtn.onclick = () => {
+      document.getElementById("prompt").value = g.prompt;
+      document.getElementById("seed").value = g.seed;
+      document.getElementById("aspect").value = g.aspect;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    actions.appendChild(reuseBtn);
+
+    const dlBtn = document.createElement("button");
+    dlBtn.textContent = "Download";
+    dlBtn.onclick = () => {
+      const a = document.createElement("a");
+      a.href = g.image;
+      a.download = `flux-${g.seed}.png`;
+      a.click();
+    };
+    actions.appendChild(dlBtn);
+
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "Delete";
+    delBtn.className = "danger";
+    delBtn.onclick = async () => {
+      await dbDelete("generations", g.id);
+      await renderGallery();
+      updateStorageInfo();
+    };
+    actions.appendChild(delBtn);
+
+    card.appendChild(actions);
+    els.gallery.appendChild(card);
+  }
+}
+
+async function updateStorageInfo() {
+  if (navigator.storage && navigator.storage.estimate) {
+    const { usage, quota } = await navigator.storage.estimate();
+    const mb = (n) => (n / 1024 / 1024).toFixed(1);
+    const pct = quota ? Math.round((usage / quota) * 100) : 0;
+    els.storageInfo.textContent = `Storage: ${mb(usage)} MB used (${pct}% of quota)`;
+    if (pct > 85) {
+      els.storageInfo.textContent += " — nearly full, delete old images/sessions";
+      els.storageInfo.style.color = "#f90";
+    } else {
+      els.storageInfo.style.color = "#666";
+    }
+  }
+}
+
+/* ============================================================
+   Generation
+   ============================================================ */
+els.btn.addEventListener("click", async () => {
+  const prompt = els.prompt.value.trim();
+  const aspect_ratio = document.getElementById("aspect").value;
+  const stepsVal = document.getElementById("steps").value.trim();
+  const cfgVal = document.getElementById("cfg").value.trim();
+  const seedVal = document.getElementById("seed").value.trim();
+
+  if (!prompt) { els.status.textContent = "Please enter a prompt."; return; }
+
+  const body = { prompt, aspect_ratio };
+  if (stepsVal !== "") body.steps = parseInt(stepsVal, 10);
+  if (cfgVal !== "") body.cfg_scale = parseFloat(cfgVal);
+  if (seedVal !== "") body.seed = parseInt(seedVal, 10);
+
+  els.btn.disabled = true;
+  els.status.textContent = "Generating... this can take 10-60 seconds.";
+  els.errorBox.innerHTML = "";
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
-  </script>
+    const data = await res.json();
+
+    if (!res.ok) {
+      els.status.textContent = "Error generating image.";
+      els.errorBox.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      return;
+    }
+
+    let b64 = null;
+    if (typeof data.image === "string") b64 = data.image;
+    else if (data.artifacts?.length > 0 && data.artifacts[0].base64) b64 = data.artifacts[0].base64;
+    else if (data.data?.length > 0 && data.data[0].b64_json) b64 = data.data[0].b64_json;
+
+    if (!b64) {
+      els.status.textContent = "Couldn't find image data in response.";
+      els.errorBox.innerHTML = `<pre>${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>`;
+      return;
+    }
+
+    const src = b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`;
+
+    // Name the session after the first prompt (like chat titles)
+    const sessions = await dbGetAll("sessions");
+    const cur = sessions.find((s) => s.id === currentSessionId);
+    if (cur && cur.name.startsWith("Session") || cur && cur.name === "New session") {
+      const gens = await dbGetBySession(currentSessionId);
+      if (gens.length === 0) {
+        cur.name = prompt.slice(0, 40) + (prompt.length > 40 ? "…" : "");
+        await dbAdd("sessions", cur);
+      }
+    }
+
+    try {
+      await dbAdd("generations", {
+        id: uid(),
+        sessionId: currentSessionId,
+        prompt,
+        seed: data.seed_used,
+        aspect: aspect_ratio,
+        image: src,
+        createdAt: Date.now(),
+      });
+      els.status.textContent = "Done.";
+    } catch (storageErr) {
+      els.status.textContent =
+        "Image generated, but couldn't be saved — storage is full. Delete old images or sessions to free space.";
+    }
+
+    await renderSessions();
+    await renderGallery();
+    updateStorageInfo();
+  } catch (err) {
+    els.status.textContent = "Request failed.";
+    els.errorBox.innerHTML = `<pre>${err.message}</pre>`;
+  } finally {
+    els.btn.disabled = false;
+  }
+});
+
+els.newSessionBtn.addEventListener("click", () => createSession("New session"));
+
+/* ============================================================
+   Init
+   ============================================================ */
+(async () => {
+  db = await openDB();
+  const sessions = await dbGetAll("sessions");
+  const saved = localStorage.getItem("flux-current-session");
+  if (sessions.length === 0) {
+    await createSession("Session 1");
+  } else {
+    currentSessionId =
+      sessions.find((s) => s.id === saved)?.id ||
+      sessions.sort((a, b) => b.createdAt - a.createdAt)[0].id;
+    await renderSessions();
+    await renderGallery();
+  }
+})();
+</script>
 </body>
 </html>

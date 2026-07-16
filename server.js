@@ -43,7 +43,7 @@ app.post("/api/generate", async (req, res) => {
         ? Number(seed)
         : randomSeed();
 
-    // Map aspect ratio to width/height (flux.1-dev wants explicit dimensions)
+    // Map aspect ratio to width/height (flux.1-dev rejects aspect_ratio)
     const SIZES = {
       "1:1":  { width: 1024, height: 1024 },
       "16:9": { width: 1344, height: 768 },
